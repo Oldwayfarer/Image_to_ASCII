@@ -37,12 +37,12 @@ def get_ascii(average):
 
 def json_dump(size, adjustment):
     """Creates or modifies save file"""
-        try:
-            with open('im_to_ASCII_save.json','w') as save:
-                options = (str(size), str(adjustment))
-                json.dump(options, save)
-        except FileNotFoundError:
-            print('Can not create a save file')
+    try:
+        with open('im_to_ASCII_save.json','w') as save:
+            options = (str(size), str(adjustment))
+            json.dump(options, save)
+    except FileNotFoundError:
+        print('Can not create a save file')
          
 def json_load():
     """Reads data from save file if it does exist and not corrupted"""
