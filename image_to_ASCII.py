@@ -3,7 +3,6 @@
 import argparse
 import json
 import random
-import sys
 from PIL import Image
     
 ASCII_dict = {
@@ -36,51 +35,57 @@ def get_ascii(average):
     """
     return random.choice(ASCII_dict[str(average // 16)])
 
-def json_save():
-    c = ' '
-    while (c.upper()!='N') and (c.upper()!='Y') :
-        c = input("Configure image? Y/N:")
-    if c.upper() == 'N':
+def json_dump(size, adjustment):
+    """Creates or modifies save file"""
         try:
-            save = open('im_to_ASCII_save.json')
-        except FileNotFoundError:
-            options = ('1.5', '100')
-            return options
-        else:
-            try:
-                options = json.load(save)
-            except JSONDecodeError:
-                print("Bad save file. Try to rewrite it")
-                exit(-1)
-            return options
-    elif c.upper() == 'Y':
-        try:
-            proportion_adj = float(input("Enter the proportions multiplier: "))
-            ascii_width = int(input("Enter Image size: "))
-        except ValueError:
-            print("Should be represented with a number")
-            exit(-1) 
-        else:
-            with open('im_to_ASCII_save.json', 'w') as save:
-                options = (str(proportion_adj), str(ascii_width))
+            with open('im_to_ASCII_save.json','w') as save:
+                options = (str(size), str(adjustment))
                 json.dump(options, save)
-                return options
+        except FileNotFoundError:
+            print('Can not create a save file')
+         
+def json_load():
+    """Reads data from save file if it does exist and not corrupted"""
+    try:
+        with open('im_to_ASCII_save.json') as save:
+            try:
+                return json.load(save)
+            except JSONDecodeError:
+                print('ERROR: save file collapsed. Try to rewrite it')
+                return ('100', '1.5')
+    except FileNotFoundError:
+        print('Can not find a save file')
 
 def main():
-    if len(sys.argv) != 2 :
-        print("Invalid arguments\nFORMAT: '<program_name> <Filename.png>'")
-        exit(-1)
+    parser = argparse.ArgumentParser(description = 'Process image into ASCII text.')
+    parser.add_argument('Image_name', help = 'Name of the image to process')
+    parser.add_argument('-w', type = int, help = 'Number of symbols in line')
+    parser.add_argument('-a', type = float, help = 'Proportions adjustment multiplier')
+    parser.add_argument('-s', default = 0, type = int, choices = range(0, 2) ,
+                        help = 'Save the current paramerters to use them as the default(0 - don\'t save, 1 - save)')
+    args = parser.parse_args()
     try:
-        with Image.open(sys.argv[1], 'r') as image:
+        with Image.open(args.Image_name) as image:
+            options = json_load()
+            size = 100
+            adjustment = 1.5
+            if options:
+                 size = int(options[0])
+                 adjustment = float(options[1])
+            if args.w:
+                size = args.w
+            if args.a:
+                adjustment = args.a
+            if args.s:
+                json_dump(size, adjustment)
             width,height = image.size
-            options = json_save()
-            width = int(width*float(options[0]))
+            width = int(width * adjustment)
             image = image.resize((width, height), Image.ANTIALIAS)
             pixels = image.load()
             i_shift = 0
             j_shift = 0
             average = 0
-            shift = width // int(options[1])
+            shift = width // size
             while i_shift+shift < height:
                 while j_shift+shift<width:
                     for i in range(i_shift, shift+i_shift):
@@ -93,9 +98,9 @@ def main():
                 i_shift += shift
                 print('')
     except FileNotFoundError:
-        print("file " + sys.argv[1] + " Doesn't exist")
+        print('file "{}" Doesn\'t exist'.format(args.Image_name))
     except OSError:
-        print('can not identify image: "' + sys.argv[1] + '"')
+        print('can not identify image: "{}"'.format(args.Image_name))
 
 if __name__ == "__main__":
     main()
