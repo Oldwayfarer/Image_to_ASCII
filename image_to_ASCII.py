@@ -33,11 +33,7 @@ def get_ascii(average, dictionary):
        base on the average value of the pixel parameters.
 
     """
-    if 256//len(dictionary) > len(dictionary):
-        divider = 256//len(dictionary)
-    else:
-        divider = len(dictionary)
-    return random.choice(dictionary[str(average // divider)])
+    return random.choice(dictionary[str(int((average/256) * len(dictionary)))])
 
 def json_dump(size, adjustment, dictionary):
     """Creates or modifies save file"""
@@ -63,6 +59,8 @@ def json_load():
 def save_dict_checker(check_dict):
     """Check that dict has valid keys and values."""
     try:
+        if len(check_dict)>255 or len(check_dict)==0:
+            print('Invalid size of a list. ')
         for i in range(0, len(check_dict)):
             if not (str(i) in check_dict.keys()):
                 print('Missing an "{}" key in the dictionary'.format(i))
