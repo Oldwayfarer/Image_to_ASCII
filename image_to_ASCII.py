@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
+from time import sleep
 import curses
 import argparse
 import json
 import random
 from PIL import Image
+from PIL import ImageSequence
 
 default_ascii_dict = {
     '0': [' '],
@@ -47,26 +49,34 @@ def end_safe(exit_code):
     exit(exit_code)
 
 
-def Image_displaying(stdscr, lines):
+def Image_displaying(stdscr, frames):
     """Controls curses session"""
-    for i in range(0, curses.COLS):
-        stdscr.addstr(curses.LINES - 2, i, " ", curses.A_REVERSE)
-    stdscr.refresh()
-    stdscr.addstr(curses.LINES-1, 0, "[arrows key] - navigation [q] - exit")
-    if len(lines[0]) > curses.COLS-1:
-        visible_cols = curses.COLS
-    else:
-        visible_cols = len(lines[0])
-    if len(lines) > curses.LINES - 3:
-        visible_lines = curses.LINES - 2
-    else:
-        visible_lines = len(lines)
-    for i in range(0, visible_lines):
-        stdscr.addstr(i, 0, lines[i][:visible_cols])
-    stdscr.refresh()
+    if len(frames) != 1:
+        stdscr.nodelay(True)
     current_line = 0
     current_col = 0
+    frame = 0
+    t = 0.05 
+    for i in range(0, curses.COLS):
+        stdscr.addstr(curses.LINES-2, i, ' ', curses.A_REVERSE)
+    stdscr.addstr(curses.LINES-1, 0, "[arrows key] - navigation [q] - exit")
+    #if len(frames) != 1:
+    #    stdscr.addstr(curses.LINES - 1, 37, "[s] [f] - make animation slower/faster")
+    stdscr.refresh()
+    if len(frames[0][0]) > curses.COLS-1:
+        visible_cols = curses.COLS
+    else:
+        visible_cols = len(frames[0][0])
+    if len(frames[0]) > curses.LINES - 3:
+        visible_lines = curses.LINES - 2
+    else:
+        visible_lines = len(frames[0])
     while True:
+        f = 1
+        for i in range(0, visible_lines):
+            add = frames[frame % len(frames)][i+current_line][current_col:visible_cols+current_col]
+            stdscr.addstr(i, 0, add)
+        stdscr.refresh
         key = stdscr.getch()
         if key == ord('q'):
             break
@@ -74,23 +84,35 @@ def Image_displaying(stdscr, lines):
             if current_line > 0:
                 current_line -= 1
         elif key == 258:
-            if current_line < len(lines)-curses.LINES:
+            if current_line < len(frames[frame % len(frames)])-curses.LINES:
                 current_line += 1
         elif key == 260:
             if current_col > 0:
                 current_col -= 1
         elif key == 261:
-            if current_col < len(lines[0])-curses.COLS:
+            if current_col < len(frames[frame % len(frames)])-curses.COLS:
                 current_col += 1
-        for i in range(0, visible_lines):
-            add = lines[i+current_line][current_col:visible_cols+current_col]
-            stdscr.addstr(i, 0, add)
-        stdscr.refresh()
+        #elif key == ord('s'):
+        #    t += 0.01
+        #elif key == ord('w'):
+        #    t -= 0.01
+        #else: 
+        #    f = 0
+        frame += 1
+        if len(frames) != 0:
+            sleep(t)
+        #while (not f) and len(frames) != 1:
+        #    if stdscr.getch() == -1:
+        #        break                      
 
 
 def get_average(pixel):
     """Return the average value of three pixel parameters."""
-    return (pixel[0]+pixel[1]+pixel[2]) // 3
+    if isinstance(pixel, tuple):
+        r = (pixel[0]+pixel[1]+pixel[2]) // 3
+    else:
+        r = pixel
+    return r
 
 
 def get_ascii(average, dictionary):
@@ -150,6 +172,46 @@ def dict_checker(check_dict):
         return 1
     except AttributeError:
         return 0
+
+
+def processer(pixels, stdscr, width, height, size, dictionary):
+    line = ''
+    lines = []
+    i_shift = 0
+    j_shift = 0
+    average = 0
+    shift = width // size
+    if shift == 0:
+        end_safe('E07')
+    area = (height//shift) * (width//shift)
+    current_area = 0
+    current_percent = 0
+    spaces = 0
+    flag = 0
+    while i_shift + shift < height:
+        while j_shift + shift < width:
+            for i in range(i_shift, shift + i_shift):
+                for j in range(j_shift, shift + j_shift):
+                    average += get_average(pixels[j, i])
+            line += get_ascii(average // (shift**2), dictionary)
+            current_area += 1
+            percent = (current_area*100)//area
+            if current_percent != percent:
+                current_percent = percent
+                stdscr.addstr(2, 0, str(percent))
+                if percent % 10 == 0 and percent//10 != flag:
+                    flag = percent//10
+                    spaces += 1
+                    stdscr.addstr(2, spaces+4, ' ', curses.A_REVERSE)
+                stdscr.refresh()
+            average = 0
+            j_shift += shift
+        j_shift = 0
+        i_shift += shift
+        lines.append(line)
+        line = ''
+    return lines
+    
 
 
 def main():
@@ -213,51 +275,17 @@ def main():
     stdscr.addstr(1, 1, 'Converting image to ASCII...', curses.A_BOLD)
     stdscr.addstr(2, 0, "0 %")
     stdscr.addstr(2, 4, "[          ]", curses.A_BOLD)
-    width, height = image.size
     if adjustment == 1:
         adjustment += 0.001
-    width = int(width * adjustment)
-    image = image.resize((width, height), Image.ANTIALIAS)
-    pixels = image.load()
-    image.close()
-    line = ''
-    lines = []
-    i_shift = 0
-    j_shift = 0
-    average = 0
-    shift = width // size
-    if shift == 0:
-        end_safe('E07')
-    area = (height//shift) * (width//shift)
-    current_area = 0
-    current_percent = 0
-    spaces = 0
-    flag = 0
-    while i_shift + shift < height:
-        while j_shift + shift < width:
-            for i in range(i_shift, shift + i_shift):
-                for j in range(j_shift, shift + j_shift):
-                    average += get_average(pixels[j, i])
-            line += get_ascii(average // (shift**2), dictionary)
-            current_area += 1
-            percent = (current_area*100)//area
-            if current_percent != percent:
-                current_percent = percent
-                stdscr.addstr(2, 0, str(percent))
-                if percent % 10 == 0 and percent//10 != flag:
-                    flag = percent//10
-                    spaces += 1
-                    stdscr.addstr(2, spaces+4, ' ', curses.A_REVERSE)
-                stdscr.refresh()
-            average = 0
-            j_shift += shift
-        j_shift = 0
-        i_shift += shift
-        lines.append(line)
-        line = ''
+    frames = []
+    for frame in ImageSequence.Iterator(image):
+        width, height = frame.size
+        width = int(width * adjustment)
+        frame = image.resize((width, height), Image.ANTIALIAS)
+        frames.append(processer(frame.load(), stdscr, width, height, size, dictionary))
     stdscr.clear()
     stdscr.refresh()
-    Image_displaying(stdscr, lines)
+    Image_displaying(stdscr, frames)
     end_safe(0)
 
 if __name__ == "__main__":
