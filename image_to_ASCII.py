@@ -77,7 +77,7 @@ def Image_displaying(stdscr, frames):
         visible_lines = len(frames[0])
     while True:
         for i in range(0, visible_lines):
-            add = frames[frame % len(frames)][i+current_line][current_col:visible_cols+current_col]
+            add = frames[frame % frame_num][i+current_line][current_col:visible_cols+current_col]
             stdscr.addstr(i, 0, add)
         stdscr.refresh
         key = stdscr.getch()
@@ -87,13 +87,13 @@ def Image_displaying(stdscr, frames):
             if current_line > 0:
                 current_line -= 1
         elif key == 258 and frame_num == 1:
-            if current_line < len(frames[frame % len(frames)])-curses.LINES:
+            if current_line < len(frames[0])-curses.LINES:
                 current_line += 1
         elif key == 260 and frame_num == 1:
             if current_col > 0:
                 current_col -= 1
         elif key == 261 and frame_num == 1:
-            if current_col < len(frames[frame % len(frames)])-curses.COLS:
+            if current_col < len(frames[0][0])-curses.COLS:
                 current_col += 1
         #elif key == ord('s'):
         #    t += 0.01
@@ -102,7 +102,7 @@ def Image_displaying(stdscr, frames):
         #else:
         #    f = 0
         frame += 1
-        if len(frames) != 1:
+        if frame_num != 1:
             sleep(t)
         #while (not f) and len(frames) != 1:
         #    if stdscr.getch() == -1:
