@@ -202,7 +202,7 @@ def processer(pixels, stdscr, width, height, size, dictionary, silent, frame_num
                 for j in range(j_shift, shift + j_shift):
                     average += get_average(pixels[j, i])
             line += get_ascii(average // (shift**2), dictionary)
-            if silent and frame_num == 1:
+            if silent:
                 current_area += 1
                 percent = (current_area*100)//area
                 if current_percent != percent:
@@ -281,26 +281,33 @@ def main():
                 end_safe('E05')
             except json.decoder.JSONDecodeError:
                 end_safe('E06')
-        if args.silent:
-            stdscr.addstr(1, 0, 'Converting image to ASCII...', curses.A_BOLD)
-            stdscr.addstr(2, 0, "0 %")
-            stdscr.addstr(2, 4, "[          ]", curses.A_BOLD)
-        if args.s:
-            json_dump(size, adjustment, dictionary)
-
+    if args.silent:
+        stdscr.addstr(1, 0, 'Converting image to ASCII...', curses.A_BOLD)
+        stdscr.addstr(2, 0, "0 %")
+        stdscr.addstr(2, 4, "[          ]", curses.A_BOLD)
+        stdscr.refresh()
+    if args.s:
+        json_dump(size, adjustment, dictionary)
+    i = 0
     if adjustment == 1:
         adjustment += 0.001
     frames = []
     frame_num = 0
     for frame in ImageSequence.Iterator(image):
         frame_num += 1
-        if frame_num > 1:
-            break
+    if args.silent:
+        stdscr.addstr(3, 0, "0"+" "*(len(str(frame_num))-1) + "/{}".format(frame_num))
     for frame in ImageSequence.Iterator(image):
         width, height = frame.size
         width = int(width * adjustment)
         frame = image.resize((width, height), Image.ANTIALIAS) 
         frames.append(processer(frame.load(), stdscr, width, height, size, dictionary, args.silent, frame_num))
+        if args.silent:
+            i += 1
+            stdscr.addstr(2, 0, "0 %")
+            stdscr.addstr(2, 4, "[          ]", curses.A_BOLD)
+            stdscr.addstr(3,0,str(i))
+            stdscr.refresh()
     stdscr.clear()
     stdscr.refresh()
     Image_displaying(stdscr, frames)

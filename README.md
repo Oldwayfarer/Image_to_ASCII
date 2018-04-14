@@ -1,10 +1,21 @@
 # Image to ASCII processer
 
-**Introduction**
+#### Introduction
+
 This programm will process your image or gif animation into the set of ASCII symbols
 
-**Dependencies**
-To run this application you need a python virsion 3.5 or greater and get PIL and curses libraries installed
+#### Dependencies
 
-**Supported files**
+For this application you need a python virsion 3.5 or greater and get PIL and curses libraries installed. It runs via terminal
+
+#### Supported files
+
 Supported image formats: BMP, EPS, GIF, JPEG, PDF, PNG, PNM, TIFF
+
+#### Keys
+
+* **Size** Use `-w size` key to control size\n
+* **Adjustment** If proportions in the processed image feels broken use `-a multiplier` key to fix it\n
+* **Save** In case you want to keep your current options use `-s` key. It will create a save file\n
+* **User dictionary** You can use your own dictionaries by `-d path_to_dictionary` key. Format of dictionary {number: [list of  symbols]}
+* **Silent mode** If you don't want to see any extra information while processing use `--silent` key
