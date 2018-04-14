@@ -57,7 +57,7 @@ def Image_displaying(stdscr, frames):
     current_line = 0
     current_col = 0
     frame = 0
-    t = 0.05 
+    t = 0.05
     for i in range(0, curses.COLS):
         stdscr.addstr(curses.LINES-2, i, ' ', curses.A_REVERSE)
     if frame_num == 1:
@@ -99,14 +99,14 @@ def Image_displaying(stdscr, frames):
         #    t += 0.01
         #elif key == ord('w'):
         #    t -= 0.01
-        #else: 
+        #else:
         #    f = 0
         frame += 1
         if len(frames) != 1:
             sleep(t)
         #while (not f) and len(frames) != 1:
         #    if stdscr.getch() == -1:
-        #        break                      
+        #        break
 
 
 def get_average(pixel):
@@ -185,8 +185,8 @@ def processer(pixels, stdscr, width, height, size, dictionary, silent, frame_num
     average = 0
     shift = width // size
     if frame_num != 1:
-        if height//shift > curses.LINES -2 and shift != 0:
-             shift = height//(curses.LINES-2)
+        if height//shift > curses.LINES-2 and shift != 0:
+            shift = height//(curses.LINES-2)
         if width//shift > curses.COLS and shift != 0:
             shift = width//(curses.COLS)
     if shift == 0:
@@ -220,7 +220,6 @@ def processer(pixels, stdscr, width, height, size, dictionary, silent, frame_num
         lines.append(line)
         line = ''
     return lines
-    
 
 
 def main():
@@ -295,19 +294,23 @@ def main():
     frame_num = 0
     for frame in ImageSequence.Iterator(image):
         frame_num += 1
+    image.close()
+    image = Image.open(args.Image_name)
     if args.silent:
-        stdscr.addstr(3, 0, "0"+" "*(len(str(frame_num))-1) + "/{}".format(frame_num))
+        stdscr.addstr(3, 0, "0" + " "*(len(str(frame_num))-1) + "/{}".format(frame_num))
     for frame in ImageSequence.Iterator(image):
         width, height = frame.size
         width = int(width * adjustment)
-        frame = image.resize((width, height), Image.ANTIALIAS) 
+        frame.convert('RGB')
+        frame = image.resize((width, height), Image.ANTIALIAS)
         frames.append(processer(frame.load(), stdscr, width, height, size, dictionary, args.silent, frame_num))
         if args.silent:
             i += 1
             stdscr.addstr(2, 0, "0 %")
             stdscr.addstr(2, 4, "[          ]", curses.A_BOLD)
-            stdscr.addstr(3,0,str(i))
+            stdscr.addstr(3, 0, str(i))
             stdscr.refresh()
+    image.close()
     stdscr.clear()
     stdscr.refresh()
     Image_displaying(stdscr, frames)
