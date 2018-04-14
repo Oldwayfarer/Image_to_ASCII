@@ -51,7 +51,8 @@ def end_safe(exit_code):
 
 def Image_displaying(stdscr, frames):
     """Controls curses session"""
-    if len(frames) != 1:
+    frame_num = len(frames)
+    if frame_num != 1:
         stdscr.nodelay(True)
     current_line = 0
     current_col = 0
@@ -59,7 +60,10 @@ def Image_displaying(stdscr, frames):
     t = 0.05 
     for i in range(0, curses.COLS):
         stdscr.addstr(curses.LINES-2, i, ' ', curses.A_REVERSE)
-    stdscr.addstr(curses.LINES-1, 0, "[arrows key] - navigation [q] - exit")
+    if frame_num == 1:
+        stdscr.addstr(curses.LINES-1, 0, "[arrows key] - navigation [q] - exit")
+    else:
+        stdscr.addstr(curses.LINES-1, 0, "[q] - exit")
     #if len(frames) != 1:
     #    stdscr.addstr(curses.LINES - 1, 37, "[s] [f] - make animation slower/faster")
     stdscr.refresh()
@@ -72,7 +76,6 @@ def Image_displaying(stdscr, frames):
     else:
         visible_lines = len(frames[0])
     while True:
-        f = 1
         for i in range(0, visible_lines):
             add = frames[frame % len(frames)][i+current_line][current_col:visible_cols+current_col]
             stdscr.addstr(i, 0, add)
@@ -80,16 +83,16 @@ def Image_displaying(stdscr, frames):
         key = stdscr.getch()
         if key == ord('q'):
             break
-        elif key == 259:
+        elif key == 259 and frame_num == 1:
             if current_line > 0:
                 current_line -= 1
-        elif key == 258:
+        elif key == 258 and frame_num == 1:
             if current_line < len(frames[frame % len(frames)])-curses.LINES:
                 current_line += 1
-        elif key == 260:
+        elif key == 260 and frame_num == 1:
             if current_col > 0:
                 current_col -= 1
-        elif key == 261:
+        elif key == 261 and frame_num == 1:
             if current_col < len(frames[frame % len(frames)])-curses.COLS:
                 current_col += 1
         #elif key == ord('s'):
@@ -99,7 +102,7 @@ def Image_displaying(stdscr, frames):
         #else: 
         #    f = 0
         frame += 1
-        if len(frames) != 0:
+        if len(frames) != 1:
             sleep(t)
         #while (not f) and len(frames) != 1:
         #    if stdscr.getch() == -1:
@@ -174,13 +177,18 @@ def dict_checker(check_dict):
         return 0
 
 
-def processer(pixels, stdscr, width, height, size, dictionary):
+def processer(pixels, stdscr, width, height, size, dictionary, silent, frame_num):
     line = ''
     lines = []
     i_shift = 0
     j_shift = 0
     average = 0
     shift = width // size
+    if frame_num != 1:
+        if height//shift > curses.LINES -2 and shift != 0:
+             shift = height//(curses.LINES-2)
+        if width//shift > curses.COLS and shift != 0:
+            shift = width//(curses.COLS)
     if shift == 0:
         end_safe('E07')
     area = (height//shift) * (width//shift)
@@ -194,16 +202,17 @@ def processer(pixels, stdscr, width, height, size, dictionary):
                 for j in range(j_shift, shift + j_shift):
                     average += get_average(pixels[j, i])
             line += get_ascii(average // (shift**2), dictionary)
-            current_area += 1
-            percent = (current_area*100)//area
-            if current_percent != percent:
-                current_percent = percent
-                stdscr.addstr(2, 0, str(percent))
-                if percent % 10 == 0 and percent//10 != flag:
-                    flag = percent//10
-                    spaces += 1
-                    stdscr.addstr(2, spaces+4, ' ', curses.A_REVERSE)
-                stdscr.refresh()
+            if silent and frame_num == 1:
+                current_area += 1
+                percent = (current_area*100)//area
+                if current_percent != percent:
+                    current_percent = percent
+                    stdscr.addstr(2, 0, str(percent))
+                    if percent % 10 == 0 and percent//10 != flag:
+                        flag = percent//10
+                        spaces += 1
+                        stdscr.addstr(2, spaces+4, ' ', curses.A_REVERSE)
+                    stdscr.refresh()
             average = 0
             j_shift += shift
         j_shift = 0
@@ -217,13 +226,15 @@ def processer(pixels, stdscr, width, height, size, dictionary):
 def main():
     parser = argparse.ArgumentParser(description='Process image into ASCII.')
     parser.add_argument('Image_name', help='Name of the image to process')
-    parser.add_argument('-w', type=int, help='Number of symbols in line')
+    parser.add_argument('-w', type=int, help='Number of symbols in line(Don\'t work with animation for now)')
     parser.add_argument('-a', type=float,
                         help='Proportions adjustment multiplier')
     parser.add_argument('-s', nargs='?', default=0, const=1,
                         help='Save the current paramerters')
     parser.add_argument('-d', type=str,
                         help='JSON Dictionary file')
+    parser.add_argument('--silent', nargs='?', default=1, const=0,
+                        help='Run the aplication silently')
     args = parser.parse_args()
 
     stdscr = curses.initscr()
@@ -270,19 +281,26 @@ def main():
                 end_safe('E05')
             except json.decoder.JSONDecodeError:
                 end_safe('E06')
-    if args.s:
-        json_dump(size, adjustment, dictionary)
-    stdscr.addstr(1, 1, 'Converting image to ASCII...', curses.A_BOLD)
-    stdscr.addstr(2, 0, "0 %")
-    stdscr.addstr(2, 4, "[          ]", curses.A_BOLD)
+        if args.silent:
+            stdscr.addstr(1, 0, 'Converting image to ASCII...', curses.A_BOLD)
+            stdscr.addstr(2, 0, "0 %")
+            stdscr.addstr(2, 4, "[          ]", curses.A_BOLD)
+        if args.s:
+            json_dump(size, adjustment, dictionary)
+
     if adjustment == 1:
         adjustment += 0.001
     frames = []
+    frame_num = 0
+    for frame in ImageSequence.Iterator(image):
+        frame_num += 1
+        if frame_num > 1:
+            break
     for frame in ImageSequence.Iterator(image):
         width, height = frame.size
         width = int(width * adjustment)
-        frame = image.resize((width, height), Image.ANTIALIAS)
-        frames.append(processer(frame.load(), stdscr, width, height, size, dictionary))
+        frame = image.resize((width, height), Image.ANTIALIAS) 
+        frames.append(processer(frame.load(), stdscr, width, height, size, dictionary, args.silent, frame_num))
     stdscr.clear()
     stdscr.refresh()
     Image_displaying(stdscr, frames)
