@@ -19,3 +19,4 @@ Supported image formats: BMP, EPS, GIF, JPEG, PDF, PNG, PNM, TIFF
 * **Save** In case you want to keep your current options use `-s` key. It will create a save file\n
 * **User dictionary** You can use your own dictionaries by `-d path_to_dictionary` key. Format of dictionary {number: [list of  symbols]}
 * **Silent mode** If you don't want to see any extra information while processing use `--silent` key
+* **No curses mode** Old school mode without curses and animation. Enables via `--nocurses` key

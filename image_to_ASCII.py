@@ -35,7 +35,8 @@ errors = {
     'E04': "Adjustment can not be less then zero.",
     'E05': "Can not find dictionary file.",
     'E06': "Can not decode dictionary file. Check if it is json file.",
-    'E07': "Too big width of ASCII image. Should be less then the original's."
+    'E07': "Too big width of ASCII image. Should be less then the original's.",
+    'E08': "Can not process animation in nocurses mode"
 }
 
 
@@ -64,8 +65,6 @@ def Image_displaying(stdscr, frames):
         stdscr.addstr(curses.LINES-1, 0, "[arrows key] - navigation [q] - exit")
     else:
         stdscr.addstr(curses.LINES-1, 0, "[q] - exit")
-    #if len(frames) != 1:
-    #    stdscr.addstr(curses.LINES - 1, 37, "[s] [f] - make animation slower/faster")
     stdscr.refresh()
     if len(frames[0][0]) > curses.COLS-1:
         visible_cols = curses.COLS
@@ -95,18 +94,9 @@ def Image_displaying(stdscr, frames):
         elif key == 261 and frame_num == 1:
             if current_col < len(frames[0][0])-curses.COLS:
                 current_col += 1
-        #elif key == ord('s'):
-        #    t += 0.01
-        #elif key == ord('w'):
-        #    t -= 0.01
-        #else:
-        #    f = 0
         frame += 1
         if frame_num != 1:
             sleep(t)
-        #while (not f) and len(frames) != 1:
-        #    if stdscr.getch() == -1:
-        #        break
 
 
 def get_average(pixel):
@@ -202,7 +192,7 @@ def processer(pixels, stdscr, width, height, size, dictionary, silent, frame_num
                 for j in range(j_shift, shift + j_shift):
                     average += get_average(pixels[j, i])
             line += get_ascii(average // (shift**2), dictionary)
-            if silent:
+            if silent and stdscr:
                 current_area += 1
                 percent = (current_area*100)//area
                 if current_percent != percent:
@@ -220,12 +210,12 @@ def processer(pixels, stdscr, width, height, size, dictionary, silent, frame_num
         lines.append(line)
         line = ''
     return lines
-
+ 
 
 def main():
     parser = argparse.ArgumentParser(description='Process image into ASCII.')
     parser.add_argument('Image_name', help='Name of the image to process')
-    parser.add_argument('-w', type=int, help='Number of symbols in line(Don\'t work with animation for now)')
+    parser.add_argument('-w', type=int, help='Number of symbols in line')
     parser.add_argument('-a', type=float,
                         help='Proportions adjustment multiplier')
     parser.add_argument('-s', nargs='?', default=0, const=1,
@@ -234,13 +224,17 @@ def main():
                         help='JSON Dictionary file')
     parser.add_argument('--silent', nargs='?', default=1, const=0,
                         help='Run the aplication silently')
+    parser.add_argument('--nocurses', nargs='?', default=1, const=0, 
+                        help = 'Simply output text into stdout(GIF animation not supported)')
     args = parser.parse_args()
 
-    stdscr = curses.initscr()
-    stdscr.keypad(True)
-    curses.noecho()
-    curses.curs_set(0)
-
+    if args.nocurses:
+        stdscr = curses.initscr()
+        stdscr.keypad(True)
+        curses.noecho()
+        curses.curs_set(0)
+    else:
+        stdscr = 0
     try:
         image = Image.open(args.Image_name)
     except FileNotFoundError:
@@ -280,7 +274,7 @@ def main():
                 end_safe('E05')
             except json.decoder.JSONDecodeError:
                 end_safe('E06')
-    if args.silent:
+    if args.silent and args.nocurses:
         stdscr.addstr(1, 0, 'Converting image to ASCII...', curses.A_BOLD)
         stdscr.addstr(2, 0, "0 %")
         stdscr.addstr(2, 4, "[          ]", curses.A_BOLD)
@@ -295,8 +289,11 @@ def main():
     for frame in ImageSequence.Iterator(image):
         frame_num += 1
     image.close()
+    if frame_num != 1 and not args.nocurses:
+        print(errors['E08'])
+        exit('E08')
     image = Image.open(args.Image_name)
-    if args.silent:
+    if args.silent and args.nocurses:
         stdscr.addstr(3, 0, "0" + " "*(len(str(frame_num))-1) + "/{}".format(frame_num))
     for frame in ImageSequence.Iterator(image):
         width, height = frame.size
@@ -304,17 +301,24 @@ def main():
         frame.convert('RGB')
         frame = image.resize((width, height), Image.ANTIALIAS)
         frames.append(processer(frame.load(), stdscr, width, height, size, dictionary, args.silent, frame_num))
-        if args.silent:
+        if args.silent and args.nocurses:
             i += 1
             stdscr.addstr(2, 0, "0 %")
             stdscr.addstr(2, 4, "[          ]", curses.A_BOLD)
             stdscr.addstr(3, 0, str(i))
             stdscr.refresh()
     image.close()
-    stdscr.clear()
-    stdscr.refresh()
-    Image_displaying(stdscr, frames)
-    end_safe(0)
+    if args.nocurses:
+        Image_displaying(stdscr, frames)
+        stdscr.clear()
+        stdscr.refresh()
+    else:
+        for i in range(0, len(frames[0])):
+            for j in range(0, len(frames[0][0])):
+                print(frames[0][i][j], end = '')
+            print('')
+    if args.nocurses:
+        end_safe(0)
 
 if __name__ == "__main__":
     main()
