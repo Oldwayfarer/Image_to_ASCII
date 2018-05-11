@@ -7,6 +7,7 @@ import json
 import random
 from PIL import Image
 from PIL import ImageSequence
+from PIL import ImageColor
 
 default_ascii_dict = {
     '0': [' '],
@@ -49,8 +50,46 @@ def end_safe(exit_code):
         print(errors[exit_code])
     exit(exit_code)
 
+def get_pair(color):
+    """Converts RGB tuple into one of avalable colors"""
+    if color[0] < 50 and color[1] < 50 and color[2] < 50:
+        return 7
+    elif color[0] > 194 and color[1] > 194 and color[2] > 194:
+        return 8
+    elif abs(color[0] - color[2])<30 and abs(color[1] - color[0])<30 and abs(color[1] - color[2])<30:
+        if (color[0]+color[1]+color[2])//3 > 127:
+            return 8
+        else:
+            return 7
+    elif color[0] >= color[1] and color[0] >= color[2]:
+        if abs(color[1] - color[2]) > 50:
+            if color[1] > color[2]:
+                return 6
+            else:
+                return 5
+        else:
+            return 1
+    elif color[1] >= color[2] and color[1] >= color[0]:
+        if abs(color[0] - color[2]) > 50:
+            if color[0] > color[2]:
+                return 10
+            else:
+                return 4
+        else:
+            return 2
+    elif color[2] >= color[1] and color[2] >= color[0]:
+        if abs(color[1] - color[0]) > 50:
+            if color[0] > color[1]:
+                return 5
+            else:
+                return 4
+        else:
+            return 3
+    else:
+        return 7
 
-def Image_displaying(stdscr, frames):
+
+def Image_displaying(stdscr, frames, Color_map, _color):
     """Controls curses session"""
     frame_num = len(frames)
     if frame_num != 1:
@@ -74,11 +113,29 @@ def Image_displaying(stdscr, frames):
         visible_lines = curses.LINES - 2
     else:
         visible_lines = len(frames[0])
+    if _color:
+        curses.init_color(10, 255, 0, 128)
+        curses.init_color(11, 128, 255, 0)
+        curses.init_pair(1,curses.COLOR_RED, curses.COLOR_BLACK)
+        curses.init_pair(2,curses.COLOR_GREEN,curses.COLOR_BLACK)
+        curses.init_pair(3,curses.COLOR_BLUE, curses.COLOR_BLACK)
+        curses.init_pair(4,curses.COLOR_CYAN, curses.COLOR_BLACK)
+        curses.init_pair(5,curses.COLOR_MAGENTA, curses.COLOR_BLACK)
+        curses.init_pair(6,curses.COLOR_YELLOW, curses.COLOR_BLACK)
+        curses.init_pair(7,curses.COLOR_BLACK, curses.COLOR_BLACK)
+        curses.init_pair(8,curses.COLOR_WHITE, curses.COLOR_BLACK)
+        curses.init_pair(9,10, curses.COLOR_BLACK)
+        curses.init_pair(10,11, curses.COLOR_BLACK)
     while True:
         for i in range(0, visible_lines):
-            add = frames[frame % frame_num][i+current_line][current_col:visible_cols+current_col]
-            stdscr.addstr(i, 0, add)
-        stdscr.refresh
+            for j in range(0, visible_cols):
+                add = frames[frame % frame_num][i+current_line][current_col+j]
+                color = Color_map[frame % frame_num][i+current_line][current_col+j]
+                if _color:
+                    stdscr.addstr(i, j, add, curses.color_pair(get_pair(color)))
+                else:
+                    stdscr.addstr(i, j, add)
+            stdscr.refresh
         key = stdscr.getch()
         if key == ord('q'):
             break
@@ -101,10 +158,10 @@ def Image_displaying(stdscr, frames):
 
 def get_average(pixel):
     """Return the average value of three pixel parameters."""
-    if isinstance(pixel, tuple):
-        r = (pixel[0]+pixel[1]+pixel[2]) // 3
-    else:
-        r = pixel
+    #if isinstance(pixel, tuple):
+    r = (pixel[0]+pixel[1]+pixel[2]) // 3
+    #else:
+    #    r = pixel
     return r
 
 
@@ -168,8 +225,10 @@ def dict_checker(check_dict):
 
 
 def processer(pixels, stdscr, width, height, size, dictionary, silent, frame_num):
-    line = ''
+    line = []
     lines = []
+    color_map = []
+    color_line = []
     i_shift = 0
     j_shift = 0
     average = 0
@@ -191,7 +250,8 @@ def processer(pixels, stdscr, width, height, size, dictionary, silent, frame_num
             for i in range(i_shift, shift + i_shift):
                 for j in range(j_shift, shift + j_shift):
                     average += get_average(pixels[j, i])
-            line += get_ascii(average // (shift**2), dictionary)
+            line.append(get_ascii(average // (shift**2), dictionary))
+            color_line.append(pixels[j, i])
             if silent and stdscr:
                 current_area += 1
                 percent = (current_area*100)//area
@@ -208,8 +268,10 @@ def processer(pixels, stdscr, width, height, size, dictionary, silent, frame_num
         j_shift = 0
         i_shift += shift
         lines.append(line)
-        line = ''
-    return lines
+        color_map.append(color_line)
+        color_line =[]
+        line = []
+    return (lines, color_map)
  
 
 def main():
@@ -226,10 +288,13 @@ def main():
                         help='Run the aplication silently')
     parser.add_argument('--nocurses', nargs='?', default=1, const=0, 
                         help = 'Simply output text into stdout(GIF animation not supported)')
+    parser.add_argument('--color', nargs='?', default=0,const=1,
+                        help='Color mode(Available in curses)')
     args = parser.parse_args()
 
     if args.nocurses:
         stdscr = curses.initscr()
+        curses.start_color()
         stdscr.keypad(True)
         curses.noecho()
         curses.curs_set(0)
@@ -279,12 +344,17 @@ def main():
         stdscr.addstr(2, 0, "0 %")
         stdscr.addstr(2, 4, "[          ]", curses.A_BOLD)
         stdscr.refresh()
+    if not args.nocurses:
+        args.color = 0
+    elif not curses.has_colors():
+        args.color = 0
     if args.s:
         json_dump(size, adjustment, dictionary)
     i = 0
     if adjustment == 1:
         adjustment += 0.001
     frames = []
+    Color_map = []
     frame_num = 0
     for frame in ImageSequence.Iterator(image):
         frame_num += 1
@@ -292,15 +362,17 @@ def main():
     if frame_num != 1 and not args.nocurses:
         print(errors['E08'])
         exit('E08')
-    image = Image.open(args.Image_name)
+    image = Image.open(args.Image_name)#.convert("RGB",palette=Image.ADAPTIVE, colors=256) 
     if args.silent and args.nocurses:
         stdscr.addstr(3, 0, "0" + " "*(len(str(frame_num))-1) + "/{}".format(frame_num))
     for frame in ImageSequence.Iterator(image):
         width, height = frame.size
         width = int(width * adjustment)
-        frame.convert('RGB')
-        frame = image.resize((width, height), Image.ANTIALIAS)
-        frames.append(processer(frame.load(), stdscr, width, height, size, dictionary, args.silent, frame_num))
+        frame = frame.convert("RGB",palette=Image.ADAPTIVE, colors=256) 
+        frame = frame.resize((width, height), Image.ANTIALIAS)
+        frame_ASCII, frame_color = processer(frame.load(), stdscr, width, height, size, dictionary, args.silent, frame_num)
+        frames.append(frame_ASCII)
+        Color_map.append(frame_color)
         if args.silent and args.nocurses:
             i += 1
             stdscr.addstr(2, 0, "0 %")
@@ -309,7 +381,7 @@ def main():
             stdscr.refresh()
     image.close()
     if args.nocurses:
-        Image_displaying(stdscr, frames)
+        Image_displaying(stdscr, frames, Color_map, args.color)
         stdscr.clear()
         stdscr.refresh()
     else:
