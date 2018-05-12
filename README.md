@@ -20,3 +20,6 @@ Supported image formats: BMP, EPS, GIF, JPEG, PDF, PNG, PNM, TIFF
 * **User dictionary** You can use your own dictionaries by `-d path_to_dictionary` key. Format of dictionary {number: [list of  symbols]}
 * **Silent mode** If you don't want to see any extra information while processing use `--silent` key
 * **No curses mode** Old school mode without curses and animation. Enables via `--nocurses` key
+* **Color mode** Color image or animation displaying(works only in curses). Enables via `--color` key
+* **export** You can export processed image into .json save file. Use `--export` key
+* **Use existing processed image** Reproduce an existing save file wich path given as the first parameter. Use `--use` key.
